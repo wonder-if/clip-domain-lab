@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from .service import (
+from service import (
     get_dataset_options,
     get_label_names,
     get_model_options,
@@ -50,9 +50,9 @@ def options():
 
 
 @app.get("/api/labels")
-def labels(dataset: str, domain: str):
+def labels(dataset: str):
     try:
-        names = get_label_names(dataset, domain)
+        names = get_label_names(dataset)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"labels": names}
@@ -64,15 +64,17 @@ async def predict(
     domain_name: str = Form(...),
     model_name: str = Form(...),
     prompt_template: str = Form("a photo of a {CLASS}"),
-    top_k: int = Form(5),
+    top_k: int = Form(10),
     target_labels: str = Form("[]"),
     true_labels: str = Form("[]"),
+    custom_labels: str = Form("[]"),
     model_root: str = Form(None),
     files: List[UploadFile] = File(...),
 ):
     try:
         target_list = json.loads(target_labels) if target_labels else []
         true_label_list = json.loads(true_labels) if true_labels else []
+        custom_label_list = json.loads(custom_labels) if custom_labels else []
     except json.JSONDecodeError as exc:
         raise HTTPException(status_code=400, detail="Invalid label list JSON") from exc
 
@@ -87,6 +89,7 @@ async def predict(
             top_k=top_k,
             target_labels=target_list,
             true_labels=true_label_list,
+            custom_labels=custom_label_list,
         )
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(exc)) from exc
@@ -98,7 +101,7 @@ def main():
     import uvicorn
 
     uvicorn.run(
-        "server.app:app",
+        "app:app",
         host="0.0.0.0",
         port=8500,
         reload=False,
