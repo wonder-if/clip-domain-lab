@@ -6,24 +6,34 @@
   <title>CLIP Attention Explorer</title>
   <style>
     :root {
-      color-scheme: light;
-      --bg: #0f172a;
-      --panel: #111827;
-      --accent: #38bdf8;
-      --muted: #94a3b8;
-      --border: #1f2937;
-      --text: #e2e8f0;
+      color-scheme: light dark;
+      --bg: #f8fafc;
+      --panel: #ffffff;
+      --accent: #0ea5e9;
+      --muted: #475569;
+      --border: #e2e8f0;
+      --text: #0f172a;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0b1220;
+        --panel: #0f172a;
+        --accent: #38bdf8;
+        --muted: #94a3b8;
+        --border: #1f2937;
+        --text: #e2e8f0;
+      }
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
       font-family: "Inter", system-ui, -apple-system, sans-serif;
-      background: radial-gradient(circle at 20% 20%, #0b1224, #050910 45%), radial-gradient(circle at 80% 10%, #0b1833, #050910 50%);
+      background: var(--bg);
       color: var(--text);
       min-height: 100vh;
     }
     header {
-      padding: 28px 24px 12px 24px;
+      padding: 24px 28px 10px 28px;
     }
     h1 {
       margin: 0;
@@ -31,75 +41,67 @@
       letter-spacing: -0.01em;
     }
     .subhead { color: var(--muted); margin-top: 6px; }
-    main { padding: 0 24px 48px 24px; max-width: 1200px; margin: 0 auto; }
-    .grid {
+    main { padding: 0 28px 40px 28px; max-width: 1400px; margin: 0 auto; }
+    .layout {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 14px;
+      grid-template-columns: 320px 1fr;
+      gap: 18px;
+      align-items: start;
     }
     .card {
-      background: rgba(17, 24, 39, 0.85);
+      background: var(--panel);
       border: 1px solid var(--border);
       border-radius: 14px;
       padding: 16px;
-      backdrop-filter: blur(8px);
-      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
     }
     label { display: block; font-size: 13px; margin-bottom: 6px; color: var(--muted); }
     select, input, button, textarea {
       width: 100%;
-      background: #0b1220;
+      background: transparent;
       border: 1px solid var(--border);
       color: var(--text);
       border-radius: 10px;
       padding: 10px 12px;
       font-size: 14px;
-      transition: border-color 0.2s, transform 0.2s;
+      transition: border-color 0.2s, transform 0.2s, background 0.2s;
     }
     select:focus, input:focus, textarea:focus {
       outline: none;
       border-color: var(--accent);
-      box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.15);
+      box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.15);
+      background: rgba(14, 165, 233, 0.04);
     }
     button {
-      background: linear-gradient(120deg, #22d3ee, #3b82f6);
+      background: linear-gradient(120deg, #22c55e, #0ea5e9);
       border: none;
       color: #0b1220;
       font-weight: 700;
       cursor: pointer;
-      box-shadow: 0 10px 30px rgba(56, 189, 248, 0.35);
+      box-shadow: 0 10px 30px rgba(14, 165, 233, 0.25);
     }
     button:hover { transform: translateY(-1px); }
     button:active { transform: translateY(0); }
     textarea { min-height: 76px; resize: vertical; }
-    .file-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 8px;
-      align-items: center;
-      padding: 8px 0;
-      border-bottom: 1px solid var(--border);
-    }
-    .file-row:last-child { border-bottom: none; }
-    .file-name { font-size: 13px; }
     .muted { color: var(--muted); font-size: 13px; }
     .results {
-      margin-top: 20px;
+      margin-top: 16px;
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 16px;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 12px;
     }
     .result-card {
-      background: rgba(11, 18, 32, 0.9);
+      background: var(--panel);
       border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 14px;
+      border-radius: 12px;
+      padding: 12px;
     }
     .result-card img {
       width: 100%;
-      border-radius: 12px;
+      border-radius: 10px;
       border: 1px solid var(--border);
-      margin-bottom: 10px;
+      margin-bottom: 8px;
+      background: #f1f5f9;
     }
     table { width: 100%; border-collapse: collapse; }
     th, td { text-align: left; padding: 6px 4px; font-size: 13px; }
@@ -111,38 +113,122 @@
       gap: 6px;
       padding: 4px 10px;
       border-radius: 999px;
-      background: rgba(56, 189, 248, 0.12);
-      color: #67e8f9;
+      background: rgba(14, 165, 233, 0.12);
+      color: #0ea5e9;
       font-weight: 600;
       font-size: 12px;
     }
     .status { margin-top: 8px; font-size: 13px; }
     .inline-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
       gap: 10px;
     }
-    .chip {
-      display: inline-block;
-      padding: 4px 8px;
-      border-radius: 6px;
-      background: rgba(148, 163, 184, 0.15);
+    .viewer {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .viewer-frame {
+      position: relative;
+      width: 70%;
+      max-width: 560px;
+      aspect-ratio: 1 / 1;
+      min-height: 220px;
+      margin: 0 auto;
+      border: 1px dashed var(--border);
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(14,165,233,0.06), rgba(34,197,94,0.08));
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      color: var(--muted);
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .viewer-frame.dragover {
+      border-color: var(--accent);
+      background: rgba(14, 165, 233, 0.1);
+      color: var(--text);
+    }
+    .viewer-frame img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: none;
+      background: #f8fafc;
+    }
+    .file-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 13px;
+    }
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .toggle-row input {
+      width: auto;
+    }
+    .bar-chart {
+      width: 100%;
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: 1fr;
+      gap: 10px;
+      align-items: end;
+      padding: 12px 6px 4px 6px;
+    }
+    .bar {
+      position: relative;
+      background: linear-gradient(180deg, rgba(14,165,233,0.32), rgba(14,165,233,0.18));
+      border: 1px solid rgba(14,165,233,0.35);
+      border-radius: 6px 6px 4px 4px;
+      min-height: 12px;
+      transition: transform 0.15s ease;
+    }
+    .bar:hover { transform: translateY(-2px); }
+    .bar-label {
+      transform: rotate(-45deg);
+      transform-origin: left;
       font-size: 12px;
       color: var(--muted);
+      white-space: nowrap;
+      position: absolute;
+      bottom: -30px;
+      left: 0;
     }
-    @media (max-width: 720px) {
-      .file-row { grid-template-columns: 1fr; }
+    .bar-value {
+      position: absolute;
+      top: -18px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 12px;
+      color: var(--text);
+      white-space: nowrap;
+    }
+    @media (max-width: 960px) {
+      .layout { grid-template-columns: 1fr; }
+      .viewer-frame {
+        width: 100%;
+        max-width: none;
+        min-height: 220px;
+      }
     }
   </style>
 </head>
 <body>
   <header>
     <h1>CLIP Attention Explorer</h1>
-    <div class="subhead">Select dataset/model, upload images, set a prompt template, and view predictions with attention overlays.</div>
+    <div class="subhead">Select dataset/model, set prompt template, drop images to preview, then view top-k bars and attention overlays.</div>
   </header>
   <main>
-    <div class="grid">
-      <div class="card">
+    <div class="layout">
+      <div class="card" style="position:sticky; top:12px;">
         <label for="dataset">Dataset</label>
         <select id="dataset"></select>
         <div style="height: 10px"></div>
@@ -155,54 +241,97 @@
         <label for="modelRoot">Model root path</label>
         <input type="text" id="modelRoot" placeholder="/mnt/.../models" />
         <div style="height: 10px"></div>
-        <label for="prompt">Prompt template</label>
-        <textarea id="prompt">a photo of a {CLASS}</textarea>
+        <label for="customLabels">Custom labels (comma or newline; overrides built-ins)</label>
+        <div class="toggle-row">
+          <span class="muted">Use custom labels</span>
+          <input type="checkbox" id="useCustomLabels" />
+        </div>
+        <textarea id="customLabels" placeholder="cat, dog, car"></textarea>
         <div style="height: 10px"></div>
         <div class="inline-grid">
           <div>
             <label for="topk">Top-K</label>
-            <input type="number" id="topk" value="5" min="1" max="20" />
+            <input type="number" id="topk" value="10" min="1" max="20" />
           </div>
           <div>
             <label for="files">Images</label>
             <input type="file" id="files" accept="image/*" multiple />
           </div>
         </div>
-        <div style="height: 10px"></div>
-        <div id="file-table"></div>
+        <div style="height: 8px"></div>
+        <label for="imageSwitcher">已上传图像</label>
+        <select id="imageSwitcher"></select>
+        <div id="file-table" class="file-list muted"></div>
         <div style="height: 12px"></div>
         <button id="run">Run inference</button>
         <div class="status" id="status"></div>
       </div>
       <div class="card">
-        <div class="pill" id="session-pill">Idle</div>
-        <div style="height: 10px"></div>
-        <div class="muted" id="session-meta"></div>
-        <div style="height: 12px"></div>
-        <div class="muted">Target label defaults to the provided true label (per image). If both are empty, the predicted top-1 is used for visualization.</div>
+        <div class="viewer">
+          <div class="inline-grid" style="gap:8px;">
+            <div>
+              <label for="prompt">Prompt template</label>
+              <textarea id="prompt">a photo of a {CLASS}</textarea>
+            </div>
+            <div>
+              <label for="promptPreset">Template preset</label>
+              <select id="promptPreset">
+                <option value="a photo of a {CLASS}">Generic photo</option>
+                <option value="a {DOMAIN} photo of a {CLASS}">Domain-aware photo</option>
+                <option value="a sketch of a {CLASS}">Sketch</option>
+                <option value="a product image of a {CLASS} on white background">Product</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label for="targetLabel">目标类别（可解释展示）</label>
+            <select id="targetLabel"></select>
+          </div>
+          <div id="viewer" class="viewer-frame">
+            <div id="viewerText">Drop images here or pick files to preview</div>
+            <img id="viewerImg" alt="preview" />
+          </div>
+          <div class="pill" id="session-pill">Idle</div>
+          <div class="muted" id="session-meta"></div>
+        </div>
+        <div class="results" id="results"></div>
       </div>
     </div>
-    <div class="results" id="results"></div>
   </main>
   <script>
     const state = {
       datasets: [],
+      builtinLabels: [],
       labels: [],
       files: [],
+      isRunning: false,
+      activeIndex: null,
+      lastResults: [],
     };
+    let optionsReady = false;
+    let autoRunTimer = null;
 
     const datasetSelect = document.getElementById("dataset");
     const domainSelect = document.getElementById("domain");
     const modelSelect = document.getElementById("model");
     const modelRootInput = document.getElementById("modelRoot");
     const promptInput = document.getElementById("prompt");
+    const promptPreset = document.getElementById("promptPreset");
+    const customLabelsInput = document.getElementById("customLabels");
+    const useCustomLabels = document.getElementById("useCustomLabels");
     const topkInput = document.getElementById("topk");
     const filesInput = document.getElementById("files");
     const fileTable = document.getElementById("file-table");
+    const imageSwitcher = document.getElementById("imageSwitcher");
+    const viewer = document.getElementById("viewer");
+    const viewerText = document.getElementById("viewerText");
+    const viewerImg = document.getElementById("viewerImg");
     const statusEl = document.getElementById("status");
     const resultsEl = document.getElementById("results");
     const sessionMeta = document.getElementById("session-meta");
     const sessionPill = document.getElementById("session-pill");
+    const runButton = document.getElementById("run");
+    const targetLabelSelect = document.getElementById("targetLabel");
 
     function setStatus(text, tone = "muted") {
       statusEl.textContent = text;
@@ -242,6 +371,7 @@
       modelRootInput.value = data.default_model_root || modelRootInput.value;
 
       updateDomains();
+      optionsReady = true;
     }
 
     function updateDomains() {
@@ -261,87 +391,201 @@
     async function fetchLabels() {
       if (!datasetSelect.value || !domainSelect.value) return;
       setStatus("Loading labels...");
-      const res = await fetch(`/api/labels?dataset=${encodeURIComponent(datasetSelect.value)}&domain=${encodeURIComponent(domainSelect.value)}`);
+      const res = await fetch(`/api/labels?dataset=${encodeURIComponent(datasetSelect.value)}`);
       const data = await res.json();
-      state.labels = data.labels || [];
+      state.builtinLabels = data.labels || [];
+      state.labels = activeLabels();
+      updateTargetLabelOptions();
       renderFileTable();
       setStatus("");
     }
 
-    function renderFileTable() {
-      if (!state.files.length) {
-        fileTable.innerHTML = '<div class="muted">No images selected.</div>';
-        return;
-      }
-      const wrapper = document.createElement("div");
-      state.files.forEach((f, idx) => {
-        const row = document.createElement("div");
-        row.className = "file-row";
-
-        const name = document.createElement("div");
-        name.className = "file-name";
-        name.textContent = f.file.name;
-
-        const truthSelect = createLabelSelect(idx, "trueLabel", "True label", f.trueLabel);
-        const targetSelect = createLabelSelect(idx, "targetLabel", "Target label", f.targetLabel);
-
-        row.appendChild(name);
-        row.appendChild(truthSelect);
-        row.appendChild(targetSelect);
-        wrapper.appendChild(row);
-      });
-      fileTable.innerHTML = "";
-      fileTable.appendChild(wrapper);
+    function parseCustomLabels() {
+      const raw = customLabelsInput.value || "";
+      return raw
+        .split(/[,\\n]/)
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
     }
 
-    function createLabelSelect(fileIndex, key, labelText, currentValue) {
-      const container = document.createElement("div");
-      const labelEl = document.createElement("div");
-      labelEl.className = "muted";
-      labelEl.textContent = labelText;
-      const select = document.createElement("select");
-      const emptyOpt = document.createElement("option");
-      emptyOpt.value = "";
-      emptyOpt.textContent = "auto";
-      select.appendChild(emptyOpt);
-      state.labels.forEach((name, idx) => {
+    function activeLabels() {
+      const custom = parseCustomLabels();
+      if (useCustomLabels.checked && custom.length) return custom;
+      return state.builtinLabels;
+    }
+
+    function updateTargetLabelOptions() {
+      const labels = activeLabels();
+      const prev = targetLabelSelect.value;
+      targetLabelSelect.innerHTML = "";
+      labels.forEach((label) => {
         const opt = document.createElement("option");
-        opt.value = name;
-        opt.textContent = `${idx}: ${name}`;
-        select.appendChild(opt);
+        opt.value = label;
+        opt.textContent = label;
+        targetLabelSelect.appendChild(opt);
       });
-      select.value = currentValue || "";
-      select.onchange = (e) => {
-        state.files[fileIndex][key] = e.target.value;
-        if (key === "trueLabel" && !state.files[fileIndex].targetLabel) {
-          state.files[fileIndex].targetLabel = e.target.value;
-          renderFileTable();
+      if (labels.length) {
+        targetLabelSelect.value = labels.includes(prev) ? prev : labels[0];
+      }
+    }
+
+    function updateImageSwitcher() {
+      if (!imageSwitcher) return;
+      imageSwitcher.innerHTML = "";
+      state.files.forEach((f, idx) => {
+        const opt = document.createElement("option");
+        opt.value = idx.toString();
+        opt.textContent = f.file.name;
+        imageSwitcher.appendChild(opt);
+      });
+      const safeIndex =
+        state.activeIndex !== null && state.activeIndex < state.files.length
+          ? state.activeIndex
+          : 0;
+      state.activeIndex = safeIndex;
+      imageSwitcher.value = safeIndex.toString();
+    }
+
+    function applyActivePreview() {
+      if (!state.files.length) return;
+      const idx =
+        state.activeIndex !== null && state.activeIndex < state.files.length
+          ? state.activeIndex
+          : 0;
+      state.activeIndex = idx;
+      const file = state.files[idx];
+      const result = state.lastResults[idx];
+      if (result && result.attention_overlay) {
+        viewerImg.src = result.attention_overlay;
+      } else {
+        viewerImg.src = URL.createObjectURL(file.file);
+      }
+      viewerImg.style.display = "block";
+      viewerText.style.display = "none";
+      if (imageSwitcher) {
+        imageSwitcher.value = idx.toString();
+      }
+    }
+
+    function renderFileTable() {
+      if (!fileTable) return;
+      if (!state.files.length) {
+        fileTable.innerHTML = '<div class="muted">No images selected.</div>';
+        viewerImg.style.display = "none";
+        viewerText.style.display = "block";
+        if (imageSwitcher) {
+          imageSwitcher.innerHTML = "";
         }
-      };
-      container.appendChild(labelEl);
-      container.appendChild(select);
-      return container;
+        return;
+      }
+      fileTable.innerHTML = state.files.map((f) => `<div class="muted">${f.file.name}</div>`).join("");
+      updateImageSwitcher();
+      applyActivePreview();
     }
 
     filesInput.addEventListener("change", (e) => {
-      state.files = Array.from(e.target.files || []).map((file) => ({
-        file,
-        trueLabel: "",
-        targetLabel: "",
-      }));
-      renderFileTable();
+      addFiles(Array.from(e.target.files || []), { autoRun: true, replace: true });
     });
+
+    function addFiles(newFiles, { autoRun = false, replace = false } = {}) {
+      if (!newFiles || !newFiles.length) return;
+      const existingNames = replace ? [] : state.files.map((f) => f.file.name);
+      const incoming = [];
+      const seen = new Set();
+      newFiles.forEach((file) => {
+        if (seen.has(file.name) || existingNames.includes(file.name)) return;
+        incoming.push({ file });
+        seen.add(file.name);
+      });
+      state.files = replace
+        ? incoming
+        : incoming.concat(state.files.filter((f) => !seen.has(f.file.name)));
+      state.lastResults = [];
+      state.activeIndex = state.files.length ? 0 : null;
+      const added = incoming.length > 0;
+      renderFileTable();
+      if (autoRun && added) {
+        scheduleAutoRun();
+      }
+    }
+
+    function handleDrop(e) {
+      e.preventDefault();
+      viewer.classList.remove("dragover");
+      const files = Array.from(e.dataTransfer?.files || []);
+      addFiles(files, { autoRun: true });
+    }
+
+    function scheduleAutoRun() {
+      if (autoRunTimer) clearTimeout(autoRunTimer);
+      autoRunTimer = setTimeout(() => runInference(true), 200);
+    }
+
+    ["dragover", "dragenter"].forEach((evt) =>
+      viewer.addEventListener(evt, (e) => {
+        e.preventDefault();
+        viewer.classList.add("dragover");
+      })
+    );
+    ["dragleave", "dragend"].forEach((evt) =>
+      viewer.addEventListener(evt, () => viewer.classList.remove("dragover"))
+    );
+    viewer.addEventListener("drop", handleDrop);
 
     datasetSelect.addEventListener("change", updateDomains);
     domainSelect.addEventListener("change", fetchLabels);
 
-    document.getElementById("run").addEventListener("click", async () => {
-      if (!state.files.length) {
-        setStatus("Please select at least one image.", "error");
+    customLabelsInput.addEventListener("input", () => {
+      const custom = parseCustomLabels();
+      state.labels = useCustomLabels.checked && custom.length ? custom : state.builtinLabels;
+      updateTargetLabelOptions();
+      renderFileTable();
+    });
+    useCustomLabels.addEventListener("change", () => {
+      const labels = activeLabels();
+      state.labels = labels;
+      updateTargetLabelOptions();
+      if (!useCustomLabels.checked) {
+        setStatus("Using built-in labels.");
+      }
+    });
+    promptPreset.addEventListener("change", (e) => {
+      promptInput.value = e.target.value;
+    });
+    imageSwitcher.addEventListener("change", (e) => {
+      const idx = parseInt(e.target.value, 10);
+      if (!Number.isNaN(idx)) {
+        state.activeIndex = Math.min(Math.max(idx, 0), state.files.length - 1);
+        applyActivePreview();
+      }
+    });
+    targetLabelSelect.addEventListener("change", () => {
+      if (!state.files.length || state.isRunning) return;
+      setStatus("Updating target class...");
+      runInference(true);
+    });
+
+    runButton.addEventListener("click", () => runInference(false));
+
+    async function runInference(autoTriggered = false) {
+      if (!optionsReady) {
+        setStatus("Options are still loading. Please wait a moment.", "error");
         return;
       }
+      if (!state.files.length) {
+        if (!autoTriggered) setStatus("Please select at least one image.", "error");
+        return;
+      }
+      if (state.isRunning) return;
+
+      const labels = activeLabels();
+      state.labels = labels;
+      updateTargetLabelOptions();
+      renderFileTable();
+
+      state.isRunning = true;
       setPill("Running...", "rgba(56, 189, 248, 0.2)");
-      setStatus("Running inference...");
+      setStatus(autoTriggered ? "Auto-running inference..." : "Running inference...");
       resultsEl.innerHTML = "";
 
       const form = new FormData();
@@ -352,9 +596,12 @@
         form.append("model_root", modelRootInput.value.trim());
       }
       form.append("prompt_template", promptInput.value.trim());
-      form.append("top_k", topkInput.value || "5");
-      form.append("target_labels", JSON.stringify(state.files.map((f) => f.targetLabel || null)));
-      form.append("true_labels", JSON.stringify(state.files.map((f) => f.trueLabel || null)));
+      form.append("top_k", topkInput.value || "10");
+      const targetLabel = targetLabelSelect.value || "";
+      const targetPayload = targetLabel ? Array(state.files.length).fill(targetLabel) : [];
+      form.append("target_labels", JSON.stringify(targetPayload));
+      form.append("true_labels", JSON.stringify([]));
+      form.append("custom_labels", JSON.stringify(useCustomLabels.checked ? parseCustomLabels() : []));
       state.files.forEach((f) => form.append("files", f.file));
 
       try {
@@ -368,11 +615,15 @@
         setStatus("Done.");
         setPill(`Ready · ${data.device}`, "rgba(34, 197, 94, 0.25)");
         setSession(`Model: ${data.model} | Dataset: ${data.dataset} / ${data.domain} | Template: ${data.prompt_template}`);
+        state.lastResults = data.results || [];
+        applyActivePreview();
       } catch (err) {
         setStatus(err.message || "Failed to run inference", "error");
         setPill("Error", "rgba(248, 113, 113, 0.3)");
+      } finally {
+        state.isRunning = false;
       }
-    });
+    }
 
     function renderResults(data) {
       resultsEl.innerHTML = "";
@@ -390,13 +641,6 @@
         pill.textContent = `Target: ${item.target_label}`;
         card.appendChild(pill);
 
-        if (item.attention_overlay) {
-          const img = document.createElement("img");
-          img.src = item.attention_overlay;
-          img.alt = "attention overlay";
-          card.appendChild(img);
-        }
-
         const table = document.createElement("table");
         const thead = document.createElement("thead");
         thead.innerHTML = "<tr><th>Label</th><th>Logit</th><th>Prob</th></tr>";
@@ -410,10 +654,44 @@
         table.appendChild(tbody);
         card.appendChild(table);
 
+        const barWrap = document.createElement("div");
+        barWrap.className = "bar-chart";
+        card.appendChild(barWrap);
+        renderBars(barWrap, item.topk || []);
+
         resultsEl.appendChild(card);
       });
     }
 
+
+    function renderBars(container, rows) {
+      container.innerHTML = "";
+      if (!rows.length) return;
+      const maxProb = Math.max(...rows.map((r) => r.prob));
+      rows.forEach((r) => {
+        const barContainer = document.createElement("div");
+        barContainer.style.position = "relative";
+        barContainer.style.height = "180px";
+
+        const bar = document.createElement("div");
+        bar.className = "bar";
+        const pct = maxProb > 0 ? (r.prob / maxProb) * 100 : 0;
+        bar.style.height = `${Math.max(8, pct)}%`;
+
+        const value = document.createElement("div");
+        value.className = "bar-value";
+        value.textContent = `${(r.prob * 100).toFixed(1)}%`;
+
+        const label = document.createElement("div");
+        label.className = "bar-label";
+        label.textContent = r.label;
+
+        barContainer.appendChild(bar);
+        barContainer.appendChild(value);
+        barContainer.appendChild(label);
+        container.appendChild(barContainer);
+      });
+    }
     fetchOptions().then(() => setPill("Ready", "rgba(34, 197, 94, 0.25)")).catch(() => setPill("Config error", "rgba(248, 113, 113, 0.3)"));
   </script>
 </body>
