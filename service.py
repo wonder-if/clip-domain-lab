@@ -563,14 +563,56 @@ class ClipService:
     def __init__(self):
         self._text_feature_cache: Dict[str, torch.Tensor] = {}
         self._models: Dict[str, LoadedModel] = {}
+        self._current_model_key: Optional[tuple[str, str]] = None
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     def get_label_names(self, dataset_name: str) -> list[str]:
         """Return built-in labels for a known dataset. No filesystem access."""
         return list(LABELS_MAP.get(dataset_name, []))
 
+    def _prune_text_cache(self, keep_key: Optional[tuple[str, str]]):
+        """Drop cached text features for other models to free memory."""
+        if keep_key is None:
+            self._text_feature_cache.clear()
+            return
+        keep_root, keep_model = keep_key
+        keys_to_drop = []
+        for cache_key in self._text_feature_cache:
+            try:
+                meta = json.loads(cache_key)
+            except Exception:
+                keys_to_drop.append(cache_key)
+                continue
+            if meta.get("model") != keep_model:
+                keys_to_drop.append(cache_key)
+                continue
+            meta_root = meta.get("model_root") or MODELS_ROOT
+            if meta_root != keep_root:
+                keys_to_drop.append(cache_key)
+        for key in keys_to_drop:
+            self._text_feature_cache.pop(key, None)
+
+    def _unload_models(self, except_key: Optional[tuple[str, str]] = None):
+        """Ensure only one model stays on GPU; unload others and clear cache."""
+        drop_keys = []
+        for key, loaded in self._models.items():
+            if except_key is not None and key == except_key:
+                continue
+            try:
+                loaded.model.cpu()
+            finally:
+                drop_keys.append(key)
+        for key in drop_keys:
+            self._models.pop(key, None)
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
     def _load_model(self, model_name: str, model_root: Optional[str] = None) -> LoadedModel:
         cache_key = (model_root or MODELS_ROOT, model_name)
+        if cache_key != self._current_model_key:
+            self._unload_models(except_key=cache_key if cache_key in self._models else None)
+            self._prune_text_cache(cache_key)
+            self._current_model_key = cache_key
         if cache_key in self._models:
             return self._models[cache_key]
 
@@ -632,8 +674,9 @@ class ClipService:
             text_features = loaded.model.get_text_features(**text_inputs)
         text_features = text_features / text_features.norm(dim=-1, keepdim=True)
 
-        self._text_feature_cache[cache_key] = text_features.cpu()
-        return text_features
+        cached = text_features.cpu()
+        self._text_feature_cache[cache_key] = cached
+        return cached
 
     def _compute_attention(
         self,
@@ -714,88 +757,116 @@ class ClipService:
         if not files:
             raise ValueError("No files provided.")
 
-        labels = (
-            [lbl for lbl in (custom_labels or []) if str(lbl).strip()]
-            or self.get_label_names(dataset_name)
-        )
-        if not labels:
-            raise ValueError("No labels available. Please provide custom labels.")
-        loaded_model = self._load_model(model_name, model_root=model_root)
-        text_features = self._encode_text(
-            model_name, model_root, dataset_name, domain_name, prompt_template, labels
-        ).to(self.device)
-
-        images: list[Image.Image] = []
-        filenames: list[str] = []
-        for f in files:
-            content = await f.read()
-            img = Image.open(io.BytesIO(content)).convert("RGB")
-            images.append(img)
-            filenames.append(f.filename or "image")
-
-        pixel_values = loaded_model.processor(
-            images=images, return_tensors="pt"
-        )["pixel_values"].to(self.device)
-
-        with torch.no_grad():
-            image_features = loaded_model.model.get_image_features(
-                pixel_values=pixel_values
+        pixel_values = None
+        logits = None
+        image_features = None
+        relevance = None
+        text_features = None
+        probs = None
+        topk_probs = None
+        topk_indices = None
+        try:
+            labels = (
+                [lbl for lbl in (custom_labels or []) if str(lbl).strip()]
+                or self.get_label_names(dataset_name)
             )
-            image_features = image_features / image_features.norm(dim=-1, keepdim=True)
-            logits = torch.matmul(image_features, text_features.t())
-            logits = logits * loaded_model.model.logit_scale.exp()
-            probs = torch.softmax(logits, dim=-1)
-            topk_probs, topk_indices = torch.topk(probs, k=min(top_k, len(labels)))
+            if not labels:
+                raise ValueError("No labels available. Please provide custom labels.")
+            loaded_model = self._load_model(model_name, model_root=model_root)
+            text_features = self._encode_text(
+                model_name, model_root, dataset_name, domain_name, prompt_template, labels
+            ).to(self.device)
 
-        target_indices: list[int] = []
-        for idx in range(len(images)):
-            target_idx = None
-            if idx < len(target_labels) and target_labels[idx] is not None:
-                target_idx = self._label_to_index(target_labels[idx], labels)
-            elif idx < len(true_labels) and true_labels[idx] is not None:
-                target_idx = self._label_to_index(true_labels[idx], labels)
-            else:
-                target_idx = int(topk_indices[idx, 0].item())
-            target_indices.append(target_idx)
+            images: list[Image.Image] = []
+            filenames: list[str] = []
+            for f in files:
+                content = await f.read()
+                img = Image.open(io.BytesIO(content)).convert("RGB")
+                images.append(img)
+                filenames.append(f.filename or "image")
 
-        relevance = self._compute_attention(
-            loaded_model.model,
-            pixel_values,
-            text_features,
-            torch.tensor(target_indices, device=self.device),
-        )
-        overlays = self._prepare_overlays(pixel_values, relevance)
+            pixel_values = loaded_model.processor(
+                images=images, return_tensors="pt"
+            )["pixel_values"].to(self.device)
 
-        results = []
-        for idx, name in enumerate(filenames):
-            top_items = []
-            for k in range(topk_indices.shape[1]):
-                cls_idx = int(topk_indices[idx, k].item())
-                top_items.append(
+            with torch.no_grad():
+                image_features = loaded_model.model.get_image_features(
+                    pixel_values=pixel_values
+                )
+                image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+                logits = torch.matmul(image_features, text_features.t())
+                logits = logits * loaded_model.model.logit_scale.exp()
+                probs = torch.softmax(logits, dim=-1)
+                topk_probs, topk_indices = torch.topk(probs, k=min(top_k, len(labels)))
+
+            target_indices: list[int] = []
+            for idx in range(len(images)):
+                target_idx = None
+                if idx < len(target_labels) and target_labels[idx] is not None:
+                    target_idx = self._label_to_index(target_labels[idx], labels)
+                elif idx < len(true_labels) and true_labels[idx] is not None:
+                    target_idx = self._label_to_index(true_labels[idx], labels)
+                else:
+                    target_idx = int(topk_indices[idx, 0].item())
+                target_indices.append(target_idx)
+
+            relevance = self._compute_attention(
+                loaded_model.model,
+                pixel_values,
+                text_features,
+                torch.tensor(target_indices, device=self.device),
+            )
+            overlays = self._prepare_overlays(pixel_values, relevance)
+
+            results = []
+            for idx, name in enumerate(filenames):
+                top_items = []
+                for k in range(topk_indices.shape[1]):
+                    cls_idx = int(topk_indices[idx, k].item())
+                    top_items.append(
+                        {
+                            "label": labels[cls_idx],
+                            "logit": float(logits[idx, cls_idx].item()),
+                            "prob": float(topk_probs[idx, k].item()),
+                        }
+                    )
+
+                results.append(
                     {
-                        "label": labels[cls_idx],
-                        "logit": float(logits[idx, cls_idx].item()),
-                        "prob": float(topk_probs[idx, k].item()),
+                        "filename": name,
+                        "target_label": labels[target_indices[idx]],
+                        "topk": top_items,
+                        "attention_overlay": overlays[idx],
                     }
                 )
 
-            results.append(
-                {
-                    "filename": name,
-                    "target_label": labels[target_indices[idx]],
-                    "topk": top_items,
-                    "attention_overlay": overlays[idx],
-                }
-            )
-
-        return {
-            "device": str(self.device),
-            "model": model_name,
-            "dataset": dataset_name,
-            "domain": domain_name,
-            "prompt_template": prompt_template,
-            "results": results,
-        }
+            return {
+                "device": str(self.device),
+                "model": model_name,
+                "dataset": dataset_name,
+                "domain": domain_name,
+                "prompt_template": prompt_template,
+                "results": results,
+            }
+        finally:
+            # Free GPU-heavy tensors explicitly
+            for tensor in (
+                pixel_values,
+                logits,
+                image_features,
+                relevance,
+                text_features,
+                probs,
+                topk_probs,
+                topk_indices,
+            ):
+                if tensor is not None:
+                    try:
+                        del tensor
+                    except Exception:
+                        pass
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
     def _label_to_index(self, label_value, names: Sequence[str]) -> int:
         if isinstance(label_value, (int, float)):
