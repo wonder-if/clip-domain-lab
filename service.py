@@ -14,6 +14,10 @@ from transformers import CLIPModel, CLIPProcessor, CLIPTokenizer
 
 
 MODELS_ROOT = "/mnt/local-data/workspace/models/"
+MODEL_ROOTS = [
+    os.path.abspath(MODELS_ROOT),
+    os.path.abspath("/data/wangyuhao/models/"),
+]
 
 DATASET_CATALOG: list[dict] = [
     {
@@ -83,6 +87,43 @@ MODEL_CATALOG: list[dict] = [
         "display": "CLIP ViT-B/16 (OpenAI mirror)",
     },
 ]
+
+def _candidate_roots(preferred_root: Optional[str] = None) -> list[str]:
+    roots: list[str] = []
+    if preferred_root:
+        roots.append(os.path.abspath(preferred_root))
+    for root in MODEL_ROOTS:
+        abs_root = os.path.abspath(root)
+        if abs_root not in roots:
+            roots.append(abs_root)
+    return roots
+
+
+def _get_model_meta(model_name: str) -> dict:
+    for item in MODEL_CATALOG:
+        if item["name"] == model_name:
+            return item
+    raise ValueError(f"Model '{model_name}' not found in catalog.")
+
+
+def _resolve_model_path(
+    model_name: str,
+    preferred_root: Optional[str] = None,
+    *,
+    strict: bool = False,
+) -> tuple[Optional[str], Optional[str]]:
+    meta = _get_model_meta(model_name)
+    roots_to_check = _candidate_roots(preferred_root)
+    for root in roots_to_check:
+        candidate = os.path.join(root, meta["path"])
+        if os.path.isdir(candidate):
+            return root, candidate
+    if strict:
+        raise ValueError(
+            f"Model '{model_name}' not found under roots: {', '.join(roots_to_check)}"
+        )
+    return None, None
+
 
 # Built-in label lists so inference does not depend on local datasets.
 LABELS_MAP: dict[str, list[str]] = {
@@ -562,7 +603,7 @@ class LoadedModel:
 class ClipService:
     def __init__(self):
         self._text_feature_cache: Dict[str, torch.Tensor] = {}
-        self._models: Dict[str, LoadedModel] = {}
+        self._models: Dict[tuple[str, str], LoadedModel] = {}
         self._current_model_key: Optional[tuple[str, str]] = None
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -586,7 +627,9 @@ class ClipService:
             if meta.get("model") != keep_model:
                 keys_to_drop.append(cache_key)
                 continue
-            meta_root = meta.get("model_root") or MODELS_ROOT
+            meta_root = os.path.abspath(
+                meta.get("model_root") or (MODEL_ROOTS[0] if MODEL_ROOTS else MODELS_ROOT)
+            )
             if meta_root != keep_root:
                 keys_to_drop.append(cache_key)
         for key in keys_to_drop:
@@ -607,23 +650,22 @@ class ClipService:
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
-    def _load_model(self, model_name: str, model_root: Optional[str] = None) -> LoadedModel:
-        cache_key = (model_root or MODELS_ROOT, model_name)
+    def _load_model(
+        self, model_name: str, model_root: Optional[str] = None
+    ) -> tuple[LoadedModel, str]:
+        resolved_root, model_path = _resolve_model_path(
+            model_name, preferred_root=model_root, strict=True
+        )
+        if resolved_root is None or model_path is None:
+            raise ValueError(f"Model '{model_name}' could not be resolved.")
+
+        cache_key = (resolved_root, model_name)
         if cache_key != self._current_model_key:
             self._unload_models(except_key=cache_key if cache_key in self._models else None)
             self._prune_text_cache(cache_key)
             self._current_model_key = cache_key
         if cache_key in self._models:
-            return self._models[cache_key]
-
-        model_path = None
-        for item in MODEL_CATALOG:
-            if item["name"] == model_name:
-                base_root = model_root or MODELS_ROOT
-                model_path = os.path.join(base_root, item["path"])
-                break
-        if model_path is None:
-            raise ValueError(f"Model '{model_name}' not found in catalog.")
+            return self._models[cache_key], resolved_root
 
         model = CLIPModel.from_pretrained(model_path, local_files_only=True)
         processor = CLIPProcessor.from_pretrained(model_path, local_files_only=True)
@@ -634,16 +676,17 @@ class ClipService:
 
         loaded = LoadedModel(model=model, processor=processor, tokenizer=tokenizer)
         self._models[cache_key] = loaded
-        return loaded
+        return loaded, resolved_root
 
     def _encode_text(
         self,
         model_name: str,
-        model_root: Optional[str],
+        model_root: str,
         dataset_name: str,
         domain_name: str,
         prompt_template: str,
         labels: list[str],
+        loaded: LoadedModel,
     ) -> torch.Tensor:
         cache_key = json.dumps(
             {
@@ -651,14 +694,13 @@ class ClipService:
                 "dataset": dataset_name,
                 "domain": domain_name,
                 "template": prompt_template,
-                "model_root": model_root or MODELS_ROOT,
+                "model_root": model_root,
             },
             sort_keys=True,
         )
         if cache_key in self._text_feature_cache:
             return self._text_feature_cache[cache_key]
 
-        loaded = self._load_model(model_name)
         prompts = [
             prompt_template.format(
                 DOMAIN=domain_name,
@@ -772,9 +814,17 @@ class ClipService:
             )
             if not labels:
                 raise ValueError("No labels available. Please provide custom labels.")
-            loaded_model = self._load_model(model_name, model_root=model_root)
+            loaded_model, resolved_root = self._load_model(
+                model_name, model_root=model_root
+            )
             text_features = self._encode_text(
-                model_name, model_root, dataset_name, domain_name, prompt_template, labels
+                model_name,
+                resolved_root,
+                dataset_name,
+                domain_name,
+                prompt_template,
+                labels,
+                loaded_model,
             ).to(self.device)
 
             images: list[Image.Image] = []
@@ -954,10 +1004,21 @@ def get_dataset_options():
 
 
 def get_model_options():
-    return [{"name": m["name"], "display": m["display"]} for m in MODEL_CATALOG]
+    options = []
+    default_root = None
+    for meta in MODEL_CATALOG:
+        root, _ = _resolve_model_path(meta["name"])
+        if root:
+            options.append({"name": meta["name"], "display": meta["display"], "root": root})
+            if default_root is None:
+                default_root = root
+    get_model_options.default_model_root = default_root or (
+        MODEL_ROOTS[0] if MODEL_ROOTS else MODELS_ROOT
+    )
+    return options
 
 
-get_model_options.default_model_root = MODELS_ROOT
+get_model_options.default_model_root = MODEL_ROOTS[0] if MODEL_ROOTS else MODELS_ROOT
 
 
 def get_label_names(dataset_name: str):
