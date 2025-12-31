@@ -55,6 +55,7 @@
       padding: 16px;
       box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
     }
+    .sidebar-card { position: sticky; top: 12px; }
     label { display: block; font-size: 13px; margin-bottom: 6px; color: var(--muted); }
     select, input, button, textarea {
       width: 100%;
@@ -211,6 +212,138 @@
       color: var(--text);
       white-space: nowrap;
     }
+    .tab-nav {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .tab {
+      padding: 10px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(148, 163, 184, 0.08);
+      cursor: pointer;
+      color: var(--text);
+      font-weight: 600;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .tab.active {
+      background: linear-gradient(120deg, rgba(14,165,233,0.18), rgba(34,197,94,0.16));
+      border-color: rgba(14, 165, 233, 0.5);
+      box-shadow: 0 10px 24px rgba(14, 165, 233, 0.15);
+    }
+    .view { display: none; }
+    .view.active { display: block; }
+    .batch-grid {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 16px;
+      align-items: stretch;
+    }
+    .batch-drop {
+      border: 1px dashed var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      background: linear-gradient(135deg, rgba(14,165,233,0.06), rgba(34,197,94,0.08));
+      min-height: 160px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 12px;
+      text-align: center;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .batch-drop.dragover {
+      border-color: var(--accent);
+      background: rgba(14, 165, 233, 0.12);
+    }
+    .batch-summary {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+      background: var(--panel);
+    }
+    .thumb-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 12px;
+      margin-top: 10px;
+    }
+    .thumb-card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 6px;
+      background: var(--panel);
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .thumb-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 24px rgba(0,0,0,0.08);
+    }
+    .thumb-card img {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      object-fit: cover;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      display: block;
+      background: #f8fafc;
+    }
+    .group-section {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+      margin-top: 12px;
+      background: var(--panel);
+    }
+    .detail-panel {
+      margin-top: 16px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      background: var(--panel);
+    }
+    .detail-hero {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 18px;
+      align-items: start;
+    }
+    .detail-hero img {
+      width: 100%;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: #f8fafc;
+    }
+    .pie-legend {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 8px;
+      font-size: 13px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .legend-swatch {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .secondary {
+      background: rgba(148, 163, 184, 0.12);
+      border: 1px dashed var(--border);
+      box-shadow: none;
+      color: var(--text);
+    }
+    .inline-actions { display: flex; align-items: center; gap: 10px; justify-content: center; flex-wrap: wrap; }
     @media (max-width: 960px) {
       .layout { grid-template-columns: 1fr; }
       .viewer-frame {
@@ -218,17 +351,20 @@
         max-width: none;
         min-height: 220px;
       }
+      .detail-hero { grid-template-columns: 1fr; }
+      .batch-grid { grid-template-columns: 1fr; }
+      .tab-nav { flex-wrap: wrap; }
     }
   </style>
 </head>
 <body>
   <header>
     <h1>CLIP Attention Explorer</h1>
-    <div class="subhead">Select dataset/model, set prompt template, drop images to preview, then view top-k bars and attention overlays.</div>
+    <div class="subhead">选择模型与数据集后，可在右侧切换单样本探索或多样本洞察，两种视图共用同一侧边栏设置。</div>
   </header>
   <main>
     <div class="layout">
-      <div class="card" style="position:sticky; top:12px;">
+      <div class="card sidebar-card">
         <label for="dataset">Dataset</label>
         <select id="dataset"></select>
         <div style="height: 10px"></div>
@@ -263,38 +399,66 @@
         <select id="imageSwitcher"></select>
         <div id="file-table" class="file-list muted"></div>
         <div style="height: 12px"></div>
-        <button id="run">Run inference</button>
+        <div class="inline-actions">
+          <button id="run">Run inference</button>
+          <button id="rerun" class="secondary" type="button">重新推理</button>
+        </div>
         <div class="status" id="status"></div>
       </div>
       <div class="card">
-        <div class="viewer">
-          <div class="inline-grid" style="gap:8px;">
-            <div>
-              <label for="prompt">Prompt template</label>
-              <textarea id="prompt">a photo of a {CLASS}</textarea>
-            </div>
-            <div>
-              <label for="promptPreset">Template preset</label>
-              <select id="promptPreset">
-                <option value="a photo of a {CLASS}">Generic photo</option>
-                <option value="a {DOMAIN} photo of a {CLASS}">Domain-aware photo</option>
-                <option value="a sketch of a {CLASS}">Sketch</option>
-                <option value="a product image of a {CLASS} on white background">Product</option>
-              </select>
-            </div>
-          </div>
-          <div>
-            <label for="targetLabel">目标类别（可解释展示）</label>
-            <select id="targetLabel"></select>
-          </div>
-          <div id="viewer" class="viewer-frame">
-            <div id="viewerText">Drop images here or pick files to preview</div>
-            <img id="viewerImg" alt="preview" />
-          </div>
-          <div class="pill" id="session-pill">Idle</div>
-          <div class="muted" id="session-meta"></div>
+        <div class="tab-nav">
+          <button class="tab active" data-tab="single">单样本探索</button>
+          <button class="tab" data-tab="batch">多样本洞察</button>
         </div>
-        <div class="results" id="results"></div>
+        <div id="singleView" class="view active">
+          <div class="viewer">
+            <div class="inline-grid" style="gap:8px;">
+              <div>
+                <label for="prompt">Prompt template</label>
+                <textarea id="prompt">a photo of a {CLASS}</textarea>
+              </div>
+              <div>
+                <label for="promptPreset">Template preset</label>
+                <select id="promptPreset">
+                  <option value="a photo of a {CLASS}">Generic photo</option>
+                  <option value="a {DOMAIN} photo of a {CLASS}">Domain-aware photo</option>
+                  <option value="a sketch of a {CLASS}">Sketch</option>
+                  <option value="a product image of a {CLASS} on white background">Product</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label for="targetLabel">目标类别（可解释展示）</label>
+              <select id="targetLabel"></select>
+            </div>
+            <div id="viewer" class="viewer-frame">
+              <div id="viewerText">Drop images here or pick files to preview</div>
+              <img id="viewerImg" alt="preview" />
+            </div>
+            <div class="pill" id="session-pill">Idle</div>
+            <div class="muted" id="session-meta"></div>
+          </div>
+          <div class="results" id="results"></div>
+        </div>
+        <div id="batchView" class="view">
+          <div class="batch-grid">
+            <div id="batchDrop" class="batch-drop">
+              <div class="subhead">拖拽多张图像或一个文件夹，自动推理并统计类别分布。</div>
+              <div class="inline-actions">
+                <button type="button" class="secondary" id="folderButton">选择文件夹</button>
+                <div class="muted">或直接拖入样本区域</div>
+              </div>
+            </div>
+            <div class="batch-summary">
+              <canvas id="pieChart" width="360" height="260"></canvas>
+              <div class="pie-legend" id="pieLegend"></div>
+              <div id="batchMeta" class="muted"></div>
+            </div>
+          </div>
+          <input type="file" id="folderInput" webkitdirectory multiple style="display:none" />
+          <div id="batchGroups"></div>
+          <div id="batchDetail" class="detail-panel muted">等待上传样本后展示详情。</div>
+        </div>
       </div>
     </div>
   </main>
@@ -307,9 +471,14 @@
       isRunning: false,
       activeIndex: null,
       lastResults: [],
+      lastMeta: null,
+      viewMode: "single",
+      grouped: [],
+      activeDetailIndex: null,
     };
     let optionsReady = false;
     let autoRunTimer = null;
+    let fileSeq = 0;
 
     const datasetSelect = document.getElementById("dataset");
     const domainSelect = document.getElementById("domain");
@@ -331,7 +500,19 @@
     const sessionMeta = document.getElementById("session-meta");
     const sessionPill = document.getElementById("session-pill");
     const runButton = document.getElementById("run");
+    const rerunButton = document.getElementById("rerun");
     const targetLabelSelect = document.getElementById("targetLabel");
+    const tabButtons = Array.from(document.querySelectorAll("[data-tab]"));
+    const singleView = document.getElementById("singleView");
+    const batchView = document.getElementById("batchView");
+    const batchDrop = document.getElementById("batchDrop");
+    const batchGroupsEl = document.getElementById("batchGroups");
+    const batchDetailEl = document.getElementById("batchDetail");
+    const batchMetaEl = document.getElementById("batchMeta");
+    const pieCanvas = document.getElementById("pieChart");
+    const pieLegend = document.getElementById("pieLegend");
+    const folderInput = document.getElementById("folderInput");
+    const folderButton = document.getElementById("folderButton");
 
     function setStatus(text, tone = "muted") {
       statusEl.textContent = text;
@@ -435,7 +616,7 @@
       state.files.forEach((f, idx) => {
         const opt = document.createElement("option");
         opt.value = idx.toString();
-        opt.textContent = f.file.name;
+        opt.textContent = f.name;
         imageSwitcher.appendChild(opt);
       });
       const safeIndex =
@@ -447,6 +628,7 @@
     }
 
     function applyActivePreview() {
+      if (state.viewMode !== "single") return;
       if (!state.files.length) return;
       const idx =
         state.activeIndex !== null && state.activeIndex < state.files.length
@@ -454,11 +636,14 @@
           : 0;
       state.activeIndex = idx;
       const file = state.files[idx];
+      if (!file.preview) {
+        file.preview = URL.createObjectURL(file.file);
+      }
       const result = state.lastResults[idx];
       if (result && result.attention_overlay) {
         viewerImg.src = result.attention_overlay;
       } else {
-        viewerImg.src = URL.createObjectURL(file.file);
+        viewerImg.src = file.preview;
       }
       viewerImg.style.display = "block";
       viewerText.style.display = "none";
@@ -478,59 +663,10 @@
         }
         return;
       }
-      fileTable.innerHTML = state.files.map((f) => `<div class="muted">${f.file.name}</div>`).join("");
+      fileTable.innerHTML = state.files.map((f) => `<div class="muted">${f.name}</div>`).join("");
       updateImageSwitcher();
       applyActivePreview();
     }
-
-    filesInput.addEventListener("change", (e) => {
-      addFiles(Array.from(e.target.files || []), { autoRun: true, replace: true });
-    });
-
-    function addFiles(newFiles, { autoRun = false, replace = false } = {}) {
-      if (!newFiles || !newFiles.length) return;
-      const existingNames = replace ? [] : state.files.map((f) => f.file.name);
-      const incoming = [];
-      const seen = new Set();
-      newFiles.forEach((file) => {
-        if (seen.has(file.name) || existingNames.includes(file.name)) return;
-        incoming.push({ file });
-        seen.add(file.name);
-      });
-      state.files = replace
-        ? incoming
-        : incoming.concat(state.files.filter((f) => !seen.has(f.file.name)));
-      state.lastResults = [];
-      state.activeIndex = state.files.length ? 0 : null;
-      const added = incoming.length > 0;
-      renderFileTable();
-      if (autoRun && added) {
-        scheduleAutoRun();
-      }
-    }
-
-    function handleDrop(e) {
-      e.preventDefault();
-      viewer.classList.remove("dragover");
-      const files = Array.from(e.dataTransfer?.files || []);
-      addFiles(files, { autoRun: true });
-    }
-
-    function scheduleAutoRun() {
-      if (autoRunTimer) clearTimeout(autoRunTimer);
-      autoRunTimer = setTimeout(() => runInference(true), 200);
-    }
-
-    ["dragover", "dragenter"].forEach((evt) =>
-      viewer.addEventListener(evt, (e) => {
-        e.preventDefault();
-        viewer.classList.add("dragover");
-      })
-    );
-    ["dragleave", "dragend"].forEach((evt) =>
-      viewer.addEventListener(evt, () => viewer.classList.remove("dragover"))
-    );
-    viewer.addEventListener("drop", handleDrop);
 
     datasetSelect.addEventListener("change", updateDomains);
     domainSelect.addEventListener("change", fetchLabels);
@@ -564,6 +700,34 @@
       setStatus("Updating target class...");
       runInference(true);
     });
+    rerunButton.addEventListener("click", () => runInference(false));
+    tabButtons.forEach((btn) =>
+      btn.addEventListener("click", () => {
+        setViewMode(btn.dataset.tab);
+      })
+    );
+
+    function setViewMode(mode) {
+      if (!mode || state.viewMode === mode) return;
+      state.viewMode = mode;
+      tabButtons.forEach((btn) => btn.classList.toggle("active", btn.dataset.tab === mode));
+      singleView.classList.toggle("active", mode === "single");
+      batchView.classList.toggle("active", mode === "batch");
+      if (mode === "single" && state.files.length > 1) {
+        state.files = state.files.slice(-1);
+        state.lastResults = [];
+        state.lastMeta = null;
+        renderFileTable();
+      }
+      if (state.lastResults.length && state.lastMeta) {
+        if (mode === "batch") {
+          renderBatchResults({ ...state.lastMeta, results: state.lastResults });
+        } else {
+          renderResults({ ...state.lastMeta, results: state.lastResults });
+          applyActivePreview();
+        }
+      }
+    }
 
     runButton.addEventListener("click", () => runInference(false));
 
@@ -587,6 +751,9 @@
       setPill("Running...", "rgba(56, 189, 248, 0.2)");
       setStatus(autoTriggered ? "Auto-running inference..." : "Running inference...");
       resultsEl.innerHTML = "";
+      clearBatchViews();
+      state.lastResults = [];
+      state.lastMeta = null;
 
       const form = new FormData();
       form.append("dataset_name", datasetSelect.value);
@@ -597,12 +764,17 @@
       }
       form.append("prompt_template", promptInput.value.trim());
       form.append("top_k", topkInput.value || "10");
-      const targetLabel = targetLabelSelect.value || "";
-      const targetPayload = targetLabel ? Array(state.files.length).fill(targetLabel) : [];
+      const payloadFiles = state.viewMode === "single" ? state.files.slice(-1) : state.files;
+      const targetLabel = state.viewMode === "batch" ? "" : targetLabelSelect.value || "";
+      const targetPayload = targetLabel ? Array(payloadFiles.length).fill(targetLabel) : [];
       form.append("target_labels", JSON.stringify(targetPayload));
       form.append("true_labels", JSON.stringify([]));
       form.append("custom_labels", JSON.stringify(useCustomLabels.checked ? parseCustomLabels() : []));
-      state.files.forEach((f) => form.append("files", f.file));
+      payloadFiles.forEach((f) => {
+        const safeName = `${Date.now()}-${f.id}-${f.name}`;
+        const safeFile = new File([f.file], safeName, { type: f.file.type });
+        form.append("files", safeFile);
+      });
 
       try {
         const res = await fetch("/api/predict", { method: "POST", body: form });
@@ -611,12 +783,17 @@
           throw new Error(detail.detail || "Request failed");
         }
         const data = await res.json();
-        renderResults(data);
+        state.lastResults = data.results || [];
+        state.lastMeta = data;
+        if (state.viewMode === "batch") {
+          renderBatchResults(data);
+        } else {
+          renderResults(data);
+          applyActivePreview();
+        }
         setStatus("Done.");
         setPill(`Ready · ${data.device}`, "rgba(34, 197, 94, 0.25)");
         setSession(`Model: ${data.model} | Dataset: ${data.dataset} / ${data.domain} | Template: ${data.prompt_template}`);
-        state.lastResults = data.results || [];
-        applyActivePreview();
       } catch (err) {
         setStatus(err.message || "Failed to run inference", "error");
         setPill("Error", "rgba(248, 113, 113, 0.3)");
@@ -626,6 +803,11 @@
     }
 
     function renderResults(data) {
+      // For single view we only show the overlay; no grid needed.
+      if (state.viewMode === "single") {
+        resultsEl.innerHTML = "";
+        return;
+      }
       resultsEl.innerHTML = "";
       (data.results || []).forEach((item) => {
         const card = document.createElement("div");
@@ -663,7 +845,6 @@
       });
     }
 
-
     function renderBars(container, rows) {
       container.innerHTML = "";
       if (!rows.length) return;
@@ -692,7 +873,330 @@
         container.appendChild(barContainer);
       });
     }
-    fetchOptions().then(() => setPill("Ready", "rgba(34, 197, 94, 0.25)")).catch(() => setPill("Config error", "rgba(248, 113, 113, 0.3)"));
+
+    function clearBatchViews() {
+      batchGroupsEl.innerHTML = "";
+      batchDetailEl.innerHTML = "等待上传样本后展示详情。";
+      batchDetailEl.classList.add("muted");
+      batchMetaEl.textContent = "";
+      pieLegend.innerHTML = "";
+      if (pieCanvas) {
+        const ctx = pieCanvas.getContext("2d");
+        ctx.clearRect(0, 0, pieCanvas.width, pieCanvas.height);
+      }
+    }
+
+    function derivePrediction(item) {
+      if (item.topk && item.topk.length) return item.topk[0].label;
+      if (item.target_label) return item.target_label;
+      return "Unlabeled";
+    }
+
+    function thumbForIndex(idx) {
+      const entry = state.files[idx];
+      if (!entry) return "";
+      if (entry.preview) return entry.preview;
+      entry.preview = URL.createObjectURL(entry.file);
+      return entry.preview;
+    }
+
+    function renderBatchResults(data) {
+      const results = data.results || [];
+      clearBatchViews();
+      if (!results.length) {
+        batchMetaEl.textContent = "暂无推理结果，拖入样本或选择文件夹后自动运行。";
+        return;
+      }
+      const groups = new Map();
+      results.forEach((item, idx) => {
+        const label = derivePrediction(item);
+        if (!groups.has(label)) groups.set(label, { label, items: [] });
+        groups.get(label).items.push({ idx, item });
+      });
+      const groupList = Array.from(groups.values()).sort((a, b) => b.items.length - a.items.length);
+      state.grouped = groupList;
+      const total = results.length;
+      batchMetaEl.textContent = `共 ${total} 张图像，推理得到 ${groupList.length} 个类别。`;
+      renderPie(groupList, total);
+
+      groupList.forEach((group) => {
+        const section = document.createElement("div");
+        section.className = "group-section";
+        const title = document.createElement("div");
+        title.className = "inline-actions";
+        title.style.justifyContent = "space-between";
+        title.innerHTML = `<div><strong>${group.label}</strong> · ${group.items.length} 张</div>`;
+        section.appendChild(title);
+
+        const grid = document.createElement("div");
+        grid.className = "thumb-grid";
+        group.items.forEach(({ idx, item }) => {
+          const card = document.createElement("div");
+          card.className = "thumb-card";
+          const img = document.createElement("img");
+          img.src = item.attention_overlay || thumbForIndex(idx);
+          img.alt = item.filename;
+          card.appendChild(img);
+          const caption = document.createElement("div");
+          caption.className = "muted";
+          caption.textContent = item.filename;
+          card.appendChild(caption);
+          card.addEventListener("click", () => showBatchDetail(idx));
+          grid.appendChild(card);
+        });
+        section.appendChild(grid);
+        batchGroupsEl.appendChild(section);
+      });
+
+      const first = groupList[0]?.items?.[0];
+      if (first) showBatchDetail(first.idx);
+    }
+
+    function renderPie(groups, total) {
+      if (!pieCanvas) return;
+      const ctx = pieCanvas.getContext("2d");
+      ctx.clearRect(0, 0, pieCanvas.width, pieCanvas.height);
+      const centerX = pieCanvas.width / 2;
+      const centerY = pieCanvas.height / 2;
+      const radius = Math.min(centerX, centerY) - 16;
+      const colors = ["#38bdf8", "#22c55e", "#f97316", "#a855f7", "#e11d48", "#10b981", "#f59e0b", "#3b82f6"];
+      let start = -Math.PI / 2;
+      pieLegend.innerHTML = "";
+      groups.forEach((group, idx) => {
+        const slice = total > 0 ? (group.items.length / total) * Math.PI * 2 : 0;
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.arc(centerX, centerY, radius, start, start + slice);
+        ctx.closePath();
+        ctx.fillStyle = colors[idx % colors.length];
+        ctx.fill();
+        const mid = start + slice / 2;
+        const labelX = centerX + Math.cos(mid) * (radius + 18);
+        const labelY = centerY + Math.sin(mid) * (radius + 18);
+        ctx.fillStyle = varTextColor();
+        ctx.font = "12px Inter, system-ui, sans-serif";
+        ctx.fillText(`${Math.round((group.items.length / total) * 100)}%`, labelX - 10, labelY);
+        start += slice;
+
+        const legendItem = document.createElement("div");
+        legendItem.className = "legend-item";
+        const swatch = document.createElement("div");
+        swatch.className = "legend-swatch";
+        swatch.style.background = colors[idx % colors.length];
+        const label = document.createElement("div");
+        label.textContent = `${group.label}: ${group.items.length}`;
+        legendItem.appendChild(swatch);
+        legendItem.appendChild(label);
+        pieLegend.appendChild(legendItem);
+      });
+    }
+
+    function varTextColor() {
+      const val = getComputedStyle(document.documentElement).getPropertyValue("--text");
+      return (val && val.trim()) || "#0f172a";
+    }
+
+    function showBatchDetail(idx) {
+      const item = state.lastResults[idx];
+      if (!item) return;
+      state.activeDetailIndex = idx;
+      batchDetailEl.classList.remove("muted");
+      batchDetailEl.innerHTML = "";
+
+      const hero = document.createElement("div");
+      hero.className = "detail-hero";
+      const img = document.createElement("img");
+      img.src = item.attention_overlay || thumbForIndex(idx);
+      img.alt = item.filename;
+      hero.appendChild(img);
+
+      const meta = document.createElement("div");
+      const title = document.createElement("h3");
+      title.textContent = item.filename;
+      title.style.marginTop = "0";
+      const subtitle = document.createElement("div");
+      subtitle.className = "muted";
+      subtitle.textContent = `预测: ${derivePrediction(item)} · 可切换类别查看注意力`;
+      const selector = document.createElement("select");
+      selector.style.marginTop = "8px";
+      (item.topk || []).forEach((row) => {
+        const opt = document.createElement("option");
+        opt.value = row.label;
+        opt.textContent = `${row.label} (${(row.prob * 100).toFixed(1)}%)`;
+        selector.appendChild(opt);
+      });
+      selector.value = derivePrediction(item);
+      selector.addEventListener("change", () => refreshAttention(idx, selector.value));
+      meta.appendChild(title);
+      meta.appendChild(subtitle);
+      meta.appendChild(selector);
+      hero.appendChild(meta);
+
+      batchDetailEl.appendChild(hero);
+      const tableWrap = document.createElement("div");
+      tableWrap.style.marginTop = "12px";
+      const table = document.createElement("table");
+      const thead = document.createElement("thead");
+      thead.innerHTML = "<tr><th>Label</th><th>Logit</th><th>Prob</th></tr>";
+      table.appendChild(thead);
+      const tbody = document.createElement("tbody");
+      (item.topk || []).forEach((row) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${row.label}</td><td>${row.logit.toFixed(3)}</td><td>${(row.prob * 100).toFixed(2)}%</td>`;
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      tableWrap.appendChild(table);
+      batchDetailEl.appendChild(tableWrap);
+    }
+
+    async function refreshAttention(idx, label) {
+      if (state.isRunning) return;
+      if (!state.files[idx]) return;
+      setStatus(`Updating attention for ${state.files[idx].file.name}...`);
+      const form = new FormData();
+      form.append("dataset_name", datasetSelect.value);
+      form.append("domain_name", domainSelect.value);
+      form.append("model_name", modelSelect.value);
+      if (modelRootInput.value.trim()) {
+        form.append("model_root", modelRootInput.value.trim());
+      }
+      form.append("prompt_template", promptInput.value.trim());
+      form.append("top_k", topkInput.value || "10");
+      form.append("target_labels", JSON.stringify(label ? [label] : []));
+      form.append("true_labels", JSON.stringify([]));
+      form.append("custom_labels", JSON.stringify(useCustomLabels.checked ? parseCustomLabels() : []));
+      form.append("files", state.files[idx].file);
+      try {
+        const res = await fetch("/api/predict", { method: "POST", body: form });
+        if (!res.ok) throw new Error("Failed to refresh attention");
+        const data = await res.json();
+        if (data.results && data.results[0]) {
+          state.lastResults[idx] = data.results[0];
+          state.lastMeta = { ...state.lastMeta, ...data };
+          renderBatchResults({ ...state.lastMeta, results: state.lastResults });
+          showBatchDetail(idx);
+        }
+      } catch (err) {
+        setStatus(err.message || "Failed to refresh attention", "error");
+      } finally {
+        setStatus("");
+      }
+    }
+
+    function collectEntryFiles(entry) {
+      return new Promise((resolve) => {
+        if (entry.isFile) {
+          entry.file((file) => resolve([file]));
+        } else if (entry.isDirectory) {
+          const reader = entry.createReader();
+          const entries = [];
+          const readEntries = () => {
+            reader.readEntries(async (batch) => {
+              if (!batch.length) {
+                const results = await Promise.all(entries.map((en) => collectEntryFiles(en)));
+                resolve(results.flat());
+              } else {
+                entries.push(...batch);
+                readEntries();
+              }
+            });
+          };
+          readEntries();
+        } else {
+          resolve([]);
+        }
+      });
+    }
+
+    async function extractFilesFromEvent(e) {
+      const items = Array.from(e.dataTransfer?.items || []);
+      if (items.some((it) => it.webkitGetAsEntry && it.webkitGetAsEntry()?.isDirectory)) {
+        const batches = await Promise.all(
+          items
+            .map((it) => it.webkitGetAsEntry && it.webkitGetAsEntry())
+            .filter(Boolean)
+            .map((entry) => collectEntryFiles(entry))
+        );
+        return batches.flat();
+      }
+      return Array.from(e.dataTransfer?.files || []);
+    }
+
+    filesInput.addEventListener("change", (e) => {
+      addFiles(Array.from(e.target.files || []), { autoRun: true, replace: true });
+    });
+
+    folderButton.addEventListener("click", () => folderInput.click());
+    folderInput.addEventListener("change", (e) => {
+      addFiles(Array.from(e.target.files || []), { autoRun: true, replace: true });
+    });
+
+    async function handleDrop(e) {
+      e.preventDefault();
+      viewer.classList.remove("dragover");
+      batchDrop.classList.remove("dragover");
+      const files = await extractFilesFromEvent(e);
+      addFiles(files, { autoRun: true });
+    }
+
+    function prepareEntry(file) {
+      fileSeq += 1;
+      return { id: fileSeq, file, name: file.name || `image-${fileSeq}`, preview: URL.createObjectURL(file) };
+    }
+
+    function addFiles(newFiles, { autoRun = false, replace = false } = {}) {
+      if (!newFiles || !newFiles.length) return;
+      const incoming = newFiles.map((file) => prepareEntry(file));
+      if (state.viewMode === "single") {
+        const chosen = incoming[incoming.length - 1];
+        state.files = [chosen];
+      } else if (replace) {
+        state.files = incoming;
+      } else {
+        state.files = state.files.concat(incoming);
+      }
+      state.lastResults = [];
+      state.lastMeta = null;
+      state.activeIndex = state.files.length ? 0 : null;
+      renderFileTable();
+      clearBatchViews();
+      if (autoRun && incoming.length) {
+        scheduleAutoRun();
+      }
+    }
+
+    function scheduleAutoRun() {
+      if (autoRunTimer) clearTimeout(autoRunTimer);
+      autoRunTimer = setTimeout(() => runInference(true), 200);
+    }
+
+    function handleDrag(evt, element, add = true) {
+      evt.preventDefault();
+      if (!element) return;
+      if (add) element.classList.add("dragover");
+      else element.classList.remove("dragover");
+    }
+
+    ["dragover", "dragenter"].forEach((evt) =>
+      viewer.addEventListener(evt, (e) => handleDrag(e, viewer, true))
+    );
+    ["dragleave", "dragend"].forEach((evt) =>
+      viewer.addEventListener(evt, (e) => handleDrag(e, viewer, false))
+    );
+    viewer.addEventListener("drop", handleDrop);
+
+    ["dragover", "dragenter"].forEach((evt) =>
+      batchDrop.addEventListener(evt, (e) => handleDrag(e, batchDrop, true))
+    );
+    ["dragleave", "dragend"].forEach((evt) =>
+      batchDrop.addEventListener(evt, (e) => handleDrag(e, batchDrop, false))
+    );
+    batchDrop.addEventListener("drop", handleDrop);
+
+    fetchOptions()
+      .then(() => setPill("Ready", "rgba(34, 197, 94, 0.25)"))
+      .catch(() => setPill("Config error", "rgba(248, 113, 113, 0.3)"));
   </script>
 </body>
 </html>
